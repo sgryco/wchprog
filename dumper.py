@@ -51,9 +51,14 @@ def binStrOfList(l):
     return ''.join(chr(x) for x in l)
 
 
+def hexstr(v):
+    return ','.join('0x{:02X}'.format(c) for c in v)
+
+
 class WCHISP:
-    def __init__(self):
+    def __init__(self, debug=False):
         # find our device
+        self.debug = debug
         dev = usb.core.find(idVendor=0x4348, idProduct=0x55e0)
         if dev is None:
             raise ValueError('Device not found')
@@ -64,6 +69,31 @@ class WCHISP:
 
         self.epout = usb.util.find_descriptor(intf, custom_match = lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_OUT)
         self.epin = usb.util.find_descriptor(intf, custom_match = lambda e: usb.util.endpoint_direction(e.bEndpointAddress) == usb.util.ENDPOINT_IN)
+
+    def cmd_verify_v2(self, msg, rlen=64):
+        # command formats (depends on command):
+        # CMD LEN DATA
+        # CMD LEN XX ADDRL ADDRH DATA[LEN]
+        # response format
+        # CMD XX LEN 0 RESULT DATA[LEN]
+        self.writeb(msg)
+        b = self.readb(rlen)
+
+        if len(b) < 5:
+            raise ValueError('Response too short for cmd 0x{:02X}, len={}'
+                             ''.format(msg[0], len(b)))
+        if b[0] != ord(msg[0]):
+            raise ValueError('Wrong response header 0x{:02X} insteadof '
+                             '0x{:02X}'.format(b[0], ord(msg[0])))
+        result, dlen, data = b[4], b[2] - 1, b[5:]
+
+        if dlen != len(data):
+            raise ValueError('Wrong response data len {} insteadof '
+                             '{}'.format(len(data), dlen))
+        if self.debug:
+            print('[DEBUG] cmd: {}'.format(hexstr(map(ord, msg))))
+            print('[DEBUG] result = 0x{:02x} data={}'.format(result, hexstr(data)))
+        return result, data
 
     def cmd(self, msg, length=64):
         self.writeb(msg)
@@ -83,9 +113,44 @@ class WCHISP:
             raise Exception('cmd[%s] return %d != %d' % (','.join(xmsg), ret, exp))
 
     def info(self):
+        # try bootloader v
         v = self.cmd('\xa2\x13USB DBG CH559 & ISP' + '\0')
+        #import ipdb;ipdb.set_trace()
+        if type(v) is not int: # not the int reply expected, trying bootloader v2
+            res, data = self.cmd_verify_v2('\xa1\x12\x00\x52\x11MCU ISP & WCH.CN')
+            if data[0] != 0x11:
+                return 0  # failure
+            self.chip_model = res
+            print('Chip model: 0x{:02X}'.format(self.chip_model))
+
+            res, data = self.cmd_verify_v2('\xa7\x00\x00\x08')
+            assert(res == 0x08)
+            # print('cfg 0x08: {}'.format(hexstr(v[6:])))
+            print('Bootloader version {}{}.{}{}'.format(*data[1:]))
+
+            #v = self.cmd('\xa7\x00\x00\x07')
+            # print('cfg 0x07: {}'.format(hexstr(v[6:])))
+            res, data = self.cmd_verify_v2('\xa7\x00\x00\x10')
+            assert(res == 0x10)
+            print('chip ID: {}'.format(hexstr(data)))
+            self.SnSum = sum(data[1:5]) & 0xFF
+            print('SnSum = 0x{:02X}'.format(self.SnSum))
+            return self.chip_model
+
         self.cmd('\xbb\x00')
+        print(v)
         return v
+
+    def set_key_v2(self):
+        # Set the key used to scramble the data over USB
+        # [6*4] [9*1] [6*1] [6*6] [6*3] [9*3] [6*5] CHID_ID +
+        data = [0x00] * 0x30
+        sumD = sum(data) & 0xFF
+        data = [d ^ self.SnSum for d in data]
+        cmd = '\xa3\x30\x00'
+        res, rdata = self.cmd_verify_v2(cmd + binStrOfList(data))
+        assert(res == (sumD + self.chip_model) & 0xFF)
+
 
     def readb(self, size):
         return self.epin.read(size)
@@ -148,11 +213,14 @@ class WCHISP:
         memdump.tofile(output_hex, format='hex')
 
 
-isp = WCHISP()
+isp = WCHISP(debug=True)
 
 # check chip ID and bootloader presence
 if isp.info() != 0x52:
-    raise IOError("not a CH552T device")
+    print("not a CH552T device")
+    sys.exit(-1)
+print('Found CH552 device')
+isp.set_key_v2()
 
 # dump flash
-isp.dump()
+#isp.dump()
