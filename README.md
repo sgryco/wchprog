@@ -6,13 +6,12 @@ needs: pyusb 1.0
 https://walac.github.io/pyusb/
 
 under ubuntu:
-
+```
 sudo apt-get install python-pip
 sudo pip install pyusb
+```
 
-
-WCH forum
-http://www.wch.cn/bbs/thread-65023-1.html
+WCH forum: http://www.wch.cn/bbs/thread-65023-1.html
 
 
 # MIT License
@@ -36,3 +35,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 # Copyright(C) 2017 juliuswwj@gmail.com
+
+## Going further:
+
+Python dumper and programmer
+
+- Documentated flashing [c program](https://www.mikrocontroller.net/attachment/393344/flash.c)
