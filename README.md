@@ -2,17 +2,30 @@
 
 A python program that downloads firmware of CH55x chips through USB link.
 
-needs: pyusb 1.0 
-https://walac.github.io/pyusb/
+## Installation
+needs: [pyusb 1.0](https://walac.github.io/pyusb/)
 
-under ubuntu:
+Under ubuntu:
 ```
 sudo apt-get install python-pip
 sudo pip install pyusb
 ```
 
+## Usage (dumper)
+See `dumper.py -h` for full help.
+
+To flash and start after flashing:
+```
+python dumper.py  -f blink.hex -s 
+```
+To dump the full memory to a hex file:
+```
+python dumper.py -d -a
+```
+
 WCH forum: http://www.wch.cn/bbs/thread-65023-1.html
 
+##
 
 # MIT License
 
