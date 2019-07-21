@@ -1,14 +1,14 @@
 #!/usr/bin/python
 from __future__ import print_function
 
+import argparse
 import struct
 import sys
+from typing import List
+
 import usb.core
 import usb.util
 from intelhex import IntelHex
-import argparse
-
-from typing import List, Any, Union
 
 parser = argparse.ArgumentParser()
 group = parser.add_mutually_exclusive_group(required=True)
@@ -157,8 +157,7 @@ class WCHISP:
         # try bootloader v
         v = self.cmd('\xa2\x13USB DBG CH559 & ISP' + '\0')
         # import ipdb;ipdb.set_trace()
-        if type(
-                v) is not int:  # not the int reply expected, trying bootloader v2
+        if type(v) is not int:  # not the int reply expected, trying bootloader v2
             res, data = self.cmd_verify_v2(
                 '\xa1\x12\x00\x52\x11MCU ISP & WCH.CN')
             if data[0] != 0x11:
